@@ -157,7 +157,7 @@ namespace ncxGen
 
             // Setup default query
             if (queriesByLevel.Count == 0)
-                queriesByLevel.AddRange(new List<string> { @"//h2", @"//h3", @"//h4" });
+                queriesByLevel.AddRange(new List<string> { @"//h:h2", @"//h:h3", @"//h:h4" });
             else
                 numLevels = queriesByLevel.Count;
             Console.WriteLine("Making "+numLevels+" levels in the toc.");
@@ -166,7 +166,9 @@ namespace ncxGen
 
             try
             {
-                using (reader = XmlReader.Create(filename))
+                XmlReaderSettings xrs = new XmlReaderSettings();
+                xrs.DtdProcessing = DtdProcessing.Parse;
+                using (reader = XmlReader.Create(filename, xrs))
                 {
                    
                     xDoc = XDocument.Load(reader);
