@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.XPath;
 using System.Xml.Linq;
@@ -48,9 +49,9 @@ namespace ncxGen
         static string BookId              = "BookId";
         static int numNcxLevelsToCollapse = 0;            // Number of levels to collapse in the Ncx file
         static int numLevels              = 3;            // Number of levels of the ToC (calculated from the numbers of -q or the default is 3)
-
-        static string textGuide           = null;
+        static string textGuide           = null;         // ID-"name" attribute pointing to the starting A TAG of the text.
         static string[] guideItems        = { "text", "start" };
+        static bool DEBUG                 = false;
 
         //
         // Program constants
@@ -59,33 +60,24 @@ namespace ncxGen
         static string tocNcxFilename  = "ncx-gen-toc.ncx";
         static string basePath        = @".\";
         public const string Prefix    = "NCXGen";
-
-
-        /// <summary>
-        /// Maintain a list of items to generate the TOC
-        /// </summary>
-        static List<TOCItem> TOCItems;
-
+                        
         /// <summary>
         /// The int pointing at the next available integer for creating the anchors
         /// </summary>
         static int nextID = 0;
 
-        static string filename;
-
+        static string SourceFilename;
+        
         static void Main(string[] args)
-        {
-            XDocument xDoc = null;
-            XmlReader reader;
-            XmlNamespaceManager nsm;
-            
-            TOCItems = new List<TOCItem>();
-            List<string> filenames = null;
+        {   
+            List<TOCItem> TOCItems = new List<TOCItem>();
+            List<string> unprocessed = null;
             List<string> queriesByLevel = new List<string>();
             var showHelp = false;
             var makeHtmlToc = false;        // Option to generate the html ToC
             var makeNcxToc = false;        // Option to generate the NcX ToC
             var makeOpfToc = false;        // Option to generate the Opf file //TODO: reference to other file names as parameter
+            string htmlSource;
 
             var options = new OptionSet()
             {
@@ -98,12 +90,14 @@ namespace ncxGen
                 {"l=|level=", "Number of levels to collapse to generate the NCX file - used with -ncx or -all.", (int l) => numNcxLevelsToCollapse = l},
                 {"toc-title=", "Name of the Table of Contents", v => TocTitle = v},
                 {"author=", "Author name.", a => BookAuthorName = a},
-                {"title=","Book title.", t => BookTitle = t}
+                {"title=","Book title.", t => BookTitle = t},
+                {"debug", "Show debug messages", v => DEBUG = true}
             };
+
 
             try
             {
-                filenames = options.Parse(args);
+                unprocessed = options.Parse(args);
             }
             catch (OptionException e)
             {
@@ -121,83 +115,66 @@ namespace ncxGen
             //
             // Filename and wrong parameters handling
             //
-            if (filenames.Count != 1)
+            if (unprocessed.Count != 1)
             {
                 Console.WriteLine("ERROR: Wrong number of parameters.");
                 ShowHelp(options);
                 Environment.Exit(1);
             }
 
-            filename = filenames.First<string>();
+            SourceFilename = unprocessed.First<string>();
 
-            if (filename[0] == '-' || filename[0] == '/')
+            if (SourceFilename[0] == '-' || SourceFilename[0] == '/')
             {
-                Console.WriteLine("ERROR: Invalid parameter: \"" + filename + "\"");
+                Console.WriteLine("ERROR: Invalid parameter: \"" + SourceFilename + "\"");
                 ShowHelp(options);
                 Environment.Exit(1);
             }
 
-            if (!File.Exists(filename))
+            if (!File.Exists(SourceFilename))
             {
-                Console.WriteLine("ERROR: " + filename + " File not found.");
+                Console.WriteLine("ERROR: " + SourceFilename + " File not found.");
                 Environment.Exit(1);
             }
-
-            basePath = Path.GetDirectoryName(filename);     //Used only for save the html toc, and the ncx in the same folder of the first book file.
+            basePath = Path.GetDirectoryName(SourceFilename);
 
             //
             // Parameters validation (cannot generate opf without both html and ncx ToC)
             //
-
             if (!(makeHtmlToc || makeNcxToc) && makeOpfToc)
             {
                 Console.WriteLine("ERROR: Can't create opf file without both html and ncx Table of Contents.");
                 Environment.Exit(1);
             }
-
             // Setup default query
             if (queriesByLevel.Count == 0)
-                queriesByLevel.AddRange(new List<string> { @"//h:h2", @"//h:h3", @"//h:h4" });
+                queriesByLevel.AddRange(new List<string> { @"h2", @"h3", @"h4" });
             else
                 numLevels = queriesByLevel.Count;
             Console.WriteLine("Making "+numLevels+" levels in the toc.");
 
-            File.Copy(filename, filename + ".bak", true);
+            File.Copy(SourceFilename, SourceFilename + ".bak", true);       // TODO: remove (shouldn't touch original file
 
-            try
+            htmlSource = File.ReadAllText(SourceFilename);
+            populateTOC(ref htmlSource, ref TOCItems, queriesByLevel);                        //Create the TOC list in the variable TOCItems
+            if (TOCItems.Count == 0)
             {
-                XmlReaderSettings xrs = new XmlReaderSettings();
-                xrs.DtdProcessing = DtdProcessing.Parse;
-                using (reader = XmlReader.Create(filename, xrs))
-                {
-                   
-                    xDoc = XDocument.Load(reader);
-                    nsm = new XmlNamespaceManager(reader.NameTable);
-                    
-                    populateTOC(xDoc.Root, nsm, queriesByLevel);                     //Create the TOC list in the variable TOCItems
-                                        
-                    textGuide = (string)xDoc.Descendants().SingleOrDefault(node => guideItems.Contains((string)node.Attribute("id"))).Attribute("id"); //Look for the beginning of the text
-                    Console.WriteLine("Found one text guide.");
-                }
-            }
-            catch (XmlException e)
-            {                
-                Console.WriteLine("ERROR: " + e.Message);
+                Console.WriteLine("ERROR: The query produced no results.");
                 Environment.Exit(1);
-                return;
             }
-            catch (InvalidOperationException)
-            {
-                Console.WriteLine("WARNING: Found more than one text guide (id=\"text\" or \"start\"), selecting the first.");
-                textGuide = (string)xDoc.Descendants().First(node => guideItems.Contains((string)node.Attribute("id"))).Attribute("id");
-            }
-
-            Console.WriteLine("The toc will have " + TOCItems.Count + " items.");
-            if (makeHtmlToc) generateHtmlToc();
-            if (makeNcxToc) generateNcxToc(makeHtmlToc);                                    // If we made the html ToC, add it to the NCX root
-            if (makeOpfToc) generateOpf();
-
-            if (makeHtmlToc || makeNcxToc || makeNcxToc) xDoc.Save(filename);               // Save only if one file is created.
+                            
+            //TODO: text guide
+            //Console.WriteLine("Found one text guide.");
+            
+            Console.WriteLine("The TOC will have " + TOCItems.Count + " items.");
+            
+            if (makeHtmlToc) generateHtmlToc(TOCItems);
+            if (makeNcxToc) generateNcxToc(TOCItems, makeHtmlToc);                                    // If we made the html ToC, add it to the NCX root
+            if (makeOpfToc) generateOpf(TOCItems);
+            
+            
+            // TODO: Save file to default or -o filename
+            //if (makeHtmlToc || makeNcxToc || makeNcxToc) xDoc.Save(filename);               // Save only if one file is created.
 
         }
 
@@ -213,7 +190,7 @@ namespace ncxGen
         /// <summary>
         /// Create the html toc.html containing the html TOC of the book
         /// </summary>
-        private static void generateHtmlToc()
+        private static void generateHtmlToc(List<TOCItem> TOCItems)
         {
             var docType = new XDocumentType("html", "-//W3C//DTD XHTML 1.0 Transitional//EN", "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd", null);
             XNamespace ns = "http://www.w3.org/1999/xhtml";
@@ -236,7 +213,7 @@ namespace ncxGen
                                 select
                                 new XElement(ns + "p",
                                     new XAttribute("class", "level_" + tocItem.Level),
-                                    new XElement(ns + "a", tocItem.Value,
+                                    new XElement(ns + "a", tocItem.Element,
                                         new XAttribute("href", tocItem.Link))));
 
             body.Element(ns + "p").SetAttributeValue("height", "2em");               //Add a space between the toc title and the first paragraph
@@ -261,7 +238,7 @@ namespace ncxGen
         }
 
 
-        private static void generateNcxToc(bool addHtmlToC = false)
+        private static void generateNcxToc(List<TOCItem> TOCItems, bool addHtmlToC = false)
         {
             int playOrder = 0;
             XElement navPoint;
@@ -305,7 +282,7 @@ namespace ncxGen
                         new XAttribute("id", item.Id),
                         new XAttribute("playOrder", playOrder++),
                         new XElement(ns + "navLabel",
-                            new XElement(ns + "text", item.Value)),
+                            new XElement(ns + "text", item.Element)),
                         new XElement(ns + "content",
                             new XAttribute("src", item.Link)));
 
@@ -351,57 +328,47 @@ namespace ncxGen
         /// <summary>
         /// Write to console the TOC, for testing only.
         /// </summary>
-        private static void printTOC()
+        private static void printTOC(List<TOCItem> TOCItems)
         {
             string prefix;
 
             foreach (TOCItem item in TOCItems)
             {
                 prefix = new string(' ', item.Level);
-                Console.WriteLine(prefix + item.Value + "\t" + item.Link);
+                Console.WriteLine(prefix + item.Element + "\t" + item.Link);
             }
         }
 
         /// <summary>
         /// Generate the TOC based on the given query.
         /// </summary>
-        /// <param name="xNav">The navigator pointing at the root of the generated file</param>
-        /// <param name="searchQuery">The full Xpath query to generate the TOC</param>
-        private static void populateTOC(XElement xRoot, XmlNamespaceManager nsm , List<string> searchQuery)
-        {             
-
-            List<TOCItem> results = new List<TOCItem>();
-                        
-            nsm.AddNamespace("h", "http://www.w3.org/1999/xhtml");
-                        
+        /// <param name="htmlFile">The html source text</param>
+        /// <param name="TOCItems">The list of TAC items</param>
+        /// <param name="searchQuery">The list with the search queries</param>
+        /// <returns>An integer with the number of occurrences of searcQuery found in htmlText</returns>
+        private static void populateTOC(ref string htmlText, ref List<TOCItem> TOCItems , List<string> searchQuery)
+        {               
             for (int level = 0; level < searchQuery.Count(); level++)
             {
-                IEnumerable<XElement> xResults = xRoot.XPathSelectElements(searchQuery[level],nsm);
-
-                if (xResults.Count() > 0)
+                string pattern = generateTAGQuery(searchQuery[level]);
+                if (DEBUG) {Console.WriteLine(pattern);}
+                MatchCollection matches = Regex.Matches(htmlText, pattern, RegexOptions.IgnoreCase);
+                foreach (Match match in matches)
                 {
-                    foreach (XElement current in xResults)
-                    {
-                        results.Add(new TOCItem(current, Path.GetFileName(filename), ++nextID, level));
-                    }
+                    TOCItems.Add(new TOCItem(match.Index,
+                                            match.Groups["ELEMENT"].Value,
+                                            Path.GetFileName(SourceFilename), 
+                                            ++nextID, 
+                                            level
+                                            ));
                 }
-                else
-                {
-                    Console.WriteLine("WARNING: No items found for the level " + level + ":  \"" + searchQuery[level] + "\".");
-                }
-
             }
-
-            if (results.Count == 0) throw new XmlException("No matches found, verify your XPATH Query (try to prefix the query with \"h:\", ie: //h:H1 ).");
-
             // Order the final node list by document position
-            results.Sort();
-
-            // Add them to the main list (in case there are multiple files)
-            TOCItems = TOCItems.Concat<TOCItem>(results).ToList<TOCItem>();
+            TOCItems.Sort();
+            return;
         }
 
-        private static void generateOpf()
+        private static void generateOpf(List<TOCItem> TOCItems)
         {
             XNamespace ns = "http://www.idpf.org/2007/opf";
 
@@ -437,7 +404,7 @@ namespace ncxGen
                     new XElement(ns + "item",
                         new XAttribute("id", "item2"),
                         new XAttribute("media-type", "application/xhtml+xml"),
-                        new XAttribute("href", Path.GetFileName(filename))),
+                        new XAttribute("href", Path.GetFileName(SourceFilename))),
                     new XElement(ns + "item",
                         new XAttribute("id", "My_Table_of_Contents"),
                         new XAttribute("media-type", "application/x-dtbncx+xml"),
@@ -463,9 +430,9 @@ namespace ncxGen
                         new XAttribute("href", tocHtmlFilename)),
                     new XElement(ns + "reference",
                         new XAttribute("type", "text"),
-                        new XAttribute("title", TocTitle),
+                        new XAttribute("title", "Beginning"),
                         new XAttribute("href",
-                            Path.GetFileName(filename) +
+                            Path.GetFileName(SourceFilename) +
                             ((textGuide == null) ? "" : "#" + textGuide)
                         )
                     )
@@ -479,8 +446,20 @@ namespace ncxGen
 
             XDocument opfDoc = new XDocument(package);
 
-            opfDoc.Save(Path.ChangeExtension(filename, ".opf"));
-            Console.WriteLine(Path.ChangeExtension(filename, ".opf" + ": file created."));
+            opfDoc.Save(Path.ChangeExtension(SourceFilename, ".opf"));
+            Console.WriteLine(Path.ChangeExtension(SourceFilename, ".opf" + ": file created."));
+        }
+
+        private static string generateTAGQuery(string searchQuery)
+        {
+            return @"<" + 
+                @"(?:" + searchQuery + @")" + 
+                @"\s*(?<ATTRIBUTES>[^>]*)>" +       // Matches the first part of the HTML tag, grouping the attributes apart
+                @"(?<ELEMENT>.*)" +                 // Matches the element and names it
+                @"(?:</" +
+                @"(?:" + searchQuery + @")" + 
+                @"[^>]*>)";                         // Closing tag discarded
+            
         }
     }
 }

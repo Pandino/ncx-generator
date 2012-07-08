@@ -32,11 +32,11 @@ using System.IO;
 namespace ncxGen
 {
     class TOCItem : IComparable<TOCItem>
-    {
+    {   
         /// <summary>
         /// Value to put in the TOC line
         /// </summary>
-        public String Value { get; private set; }
+        public String Element { get; private set; }
 
         /// <summary>
         /// The name used as anchor in the id attribute
@@ -47,6 +47,8 @@ namespace ncxGen
         /// Full name of the source html, with path and extension.
         /// </summary>
         private string Filename { get; set; }
+
+        private int Position { get; set; }
 
         /// <summary>
         /// Html link to the node tag. Style: "filename.ext#link"
@@ -64,12 +66,7 @@ namespace ncxGen
         /// Level of the node in the TOC
         /// </summary>
         public int Level { get; private set; }
-
-        /// <summary>
-        /// The XML node associated to this TOCItem
-        /// </summary>
-        private XElement element { get; set; }
-
+                
         /// <summary>
         /// Create a TOC item and write the id attribute in the associated XElement
         /// </summary>
@@ -77,21 +74,19 @@ namespace ncxGen
         /// <param name="value">Text to be written in the TOC</param>
         /// <param name="link">Link to the anchor in the html file</param>
         /// <param name="level">Level of indentation in the TOC</param>
-        public TOCItem(XElement element, string filename, int id, int level)
-        {
-            this.element = element;
-            Value        = element.Value.Trim();
+        public TOCItem(int position, string element, string filename, int id,  int level)
+        {            
+            Element      = element.Trim();
             Filename     = filename;
             this.Id      = NCXGen.Prefix + id.ToString();                                //HACK: Using a global var and it is modifying the original file in the constructor
             Level        = level;
-
-            element.SetAttributeValue("id", this.Id);
+            Position = position;                        
         }
         
         public int CompareTo(TOCItem other)
         {
-            if (this.element.IsBefore(other.element)) return -1;
-            else if (this.element.IsAfter(other.element)) return 1;
+            if (this.Position < other.Position) return -1;
+            else if (this.Position > other.Position) return 1;
             else return 0;
         }
     }
