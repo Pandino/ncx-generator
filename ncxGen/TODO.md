@@ -1,0 +1,5 @@
+- allow output filename
+- toc and ncx filenames: source_toc.html source.ncx
+- remove references to multiple html source filenames (doesn't make any sense)
+- *Regex* big overhaul
+- preserve existing ID attributes
