@@ -59,7 +59,7 @@
     <ManifestKeyFile>ncxGen_TemporaryKey.pfx</ManifestKeyFile>
   </PropertyGroup>
   <PropertyGroup>
-    <GenerateManifests>true</GenerateManifests>
+    <GenerateManifests>false</GenerateManifests>
   </PropertyGroup>
   <PropertyGroup>
     <TargetZone>LocalIntranet</TargetZone>
@@ -67,6 +67,9 @@
   <PropertyGroup />
   <PropertyGroup>
     <SignManifests>false</SignManifests>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -85,6 +88,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="COPYING" />
+    <None Include="Properties\app.manifest" />
     <None Include="TODO.md" />
   </ItemGroup>
   <ItemGroup>
@@ -112,6 +116,9 @@
   <ItemGroup>
     <Content Include="Clip.txt" />
     <Content Include="README.txt" />
+    <Content Include="Test\test.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

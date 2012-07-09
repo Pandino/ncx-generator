@@ -56,8 +56,9 @@ namespace ncxGen
         //
         // Program constants
         //
-        static string tocHtmlFilename = "ncx-gen-toc.html";
+        static string tocHtmlFilename = "ncx-gen-toc.html"; //TODO: Handle in case of output flag
         static string tocNcxFilename  = "ncx-gen-toc.ncx";
+        static string defaultFilename = "ncxgen_out";
         static string basePath        = @".\";
         public const string Prefix    = "NCXGen";
                         
@@ -66,18 +67,20 @@ namespace ncxGen
         /// </summary>
         static int nextID = 0;
 
-        static string SourceFilename;
-        
+        static string SourceFilename;   //TODO: refactor in Main
+        static string OutFilename;
+
         static void Main(string[] args)
-        {   
+        {
             List<TOCItem> TOCItems = new List<TOCItem>();
             List<string> unprocessed = null;
             List<string> queriesByLevel = new List<string>();
             var showHelp = false;
             var makeHtmlToc = false;        // Option to generate the html ToC
-            var makeNcxToc = false;        // Option to generate the NcX ToC
-            var makeOpfToc = false;        // Option to generate the Opf file //TODO: reference to other file names as parameter
-            string htmlSource;
+            var makeNcxToc = false;         // Option to generate the NcX ToC
+            var makeOpfToc = false;         // Option to generate the Opf file //TODO: reference to other file names as parameter
+            string htmlText;
+
 
             var options = new OptionSet()
             {
@@ -91,7 +94,7 @@ namespace ncxGen
                 {"toc-title=", "Name of the Table of Contents", v => TocTitle = v},
                 {"author=", "Author name.", a => BookAuthorName = a},
                 {"title=","Book title.", t => BookTitle = t},
-                {"debug", "Show debug messages", v => DEBUG = true}
+                {"debug", "Show debug messages", v => DEBUG = v != null}
             };
 
 
@@ -136,7 +139,10 @@ namespace ncxGen
                 Console.WriteLine("ERROR: " + SourceFilename + " File not found.");
                 Environment.Exit(1);
             }
-            basePath = Path.GetDirectoryName(SourceFilename);
+
+            //basePath = Path.GetDirectoryName(SourceFilename);       //used when -o option
+            //TODO: output file option
+            OutFilename = defaultFilename;
 
             //
             // Parameters validation (cannot generate opf without both html and ncx ToC)
@@ -151,31 +157,29 @@ namespace ncxGen
                 queriesByLevel.AddRange(new List<string> { @"h2", @"h3", @"h4" });
             else
                 numLevels = queriesByLevel.Count;
-            Console.WriteLine("Making "+numLevels+" levels in the toc.");
+            Console.WriteLine("Making " + numLevels + " levels in the toc.");
 
-            File.Copy(SourceFilename, SourceFilename + ".bak", true);       // TODO: remove (shouldn't touch original file
-
-            htmlSource = File.ReadAllText(SourceFilename);
-            populateTOC(ref htmlSource, ref TOCItems, queriesByLevel);                        //Create the TOC list in the variable TOCItems
+            htmlText = File.ReadAllText(SourceFilename);
+            populateTOC(ref htmlText, ref TOCItems, queriesByLevel);                                    //Create the TOC list in the variable TOCItems
             if (TOCItems.Count == 0)
             {
                 Console.WriteLine("ERROR: The query produced no results.");
                 Environment.Exit(1);
             }
-                            
+
             //TODO: text guide
             //Console.WriteLine("Found one text guide.");
-            
-            Console.WriteLine("The TOC will have " + TOCItems.Count + " items.");
-            
-            if (makeHtmlToc) generateHtmlToc(TOCItems);
-            if (makeNcxToc) generateNcxToc(TOCItems, makeHtmlToc);                                    // If we made the html ToC, add it to the NCX root
-            if (makeOpfToc) generateOpf(TOCItems);
-            
-            
-            // TODO: Save file to default or -o filename
-            //if (makeHtmlToc || makeNcxToc || makeNcxToc) xDoc.Save(filename);               // Save only if one file is created.
 
+            Console.WriteLine("The TOC will have {0} items. {1} in the first level.", TOCItems.Count, TOCItems.Count(p => p.Level == 0));
+
+            if (makeHtmlToc) generateHtmlToc(TOCItems);
+            if (makeNcxToc) generateNcxToc(TOCItems, makeHtmlToc);                                      //makeHtmlToc: if we made the html ToC, add it to the NCX root
+            if (makeOpfToc) generateOpf(TOCItems);
+
+            if (makeHtmlToc || makeNcxToc || makeNcxToc)                                                //Don't save the output file when no options given.
+            {                                                                                           //TODO: overwrite check
+                File.WriteAllText(Path.Combine(basePath, OutFilename + ".out.html"), htmlText);         
+            }
         }
 
         private static void ShowHelp(OptionSet p)
@@ -347,18 +351,33 @@ namespace ncxGen
         /// <param name="searchQuery">The list with the search queries</param>
         /// <returns>An integer with the number of occurrences of searcQuery found in htmlText</returns>
         private static void populateTOC(ref string htmlText, ref List<TOCItem> TOCItems , List<string> searchQuery)
-        {               
+        {
+            // Setup the regular expression to extract the id field:
+            string id;            
+            string idPattern = @"id\s*=\s*""([^""]+)";
+            Regex rid = new Regex(idPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+            // Parse the query for each level and populate the TOC List
             for (int level = 0; level < searchQuery.Count(); level++)
             {
                 string pattern = generateTAGQuery(searchQuery[level]);
                 if (DEBUG) {Console.WriteLine(pattern);}
-                MatchCollection matches = Regex.Matches(htmlText, pattern, RegexOptions.IgnoreCase);
+                MatchCollection matches = Regex.Matches(htmlText, pattern, RegexOptions.IgnoreCase); //TODO: WRONG, must use REPLACE
                 foreach (Match match in matches)
                 {
+                    // Search for an ID attribute:
+                    id = rid.Match(match.Groups["ATTRIBUTES"].Value).Value;
+                    // If none found, assign a new one and write it back in the html file:
+                    if (id == "") 
+                    { 
+                        id = Prefix + (nextID++).ToString();
+ 
+                    }
+
                     TOCItems.Add(new TOCItem(match.Index,
                                             match.Groups["ELEMENT"].Value,
                                             Path.GetFileName(SourceFilename), 
-                                            ++nextID, 
+                                            id, 
                                             level
                                             ));
                 }
@@ -404,7 +423,7 @@ namespace ncxGen
                     new XElement(ns + "item",
                         new XAttribute("id", "item2"),
                         new XAttribute("media-type", "application/xhtml+xml"),
-                        new XAttribute("href", Path.GetFileName(SourceFilename))),
+                        new XAttribute("href", OutFilename)),
                     new XElement(ns + "item",
                         new XAttribute("id", "My_Table_of_Contents"),
                         new XAttribute("media-type", "application/x-dtbncx+xml"),
@@ -432,8 +451,7 @@ namespace ncxGen
                         new XAttribute("type", "text"),
                         new XAttribute("title", "Beginning"),
                         new XAttribute("href",
-                            Path.GetFileName(SourceFilename) +
-                            ((textGuide == null) ? "" : "#" + textGuide)
+                            OutFilename + ((textGuide == null) ? "" : "#" + textGuide)
                         )
                     )
                 );
@@ -446,8 +464,8 @@ namespace ncxGen
 
             XDocument opfDoc = new XDocument(package);
 
-            opfDoc.Save(Path.ChangeExtension(SourceFilename, ".opf"));
-            Console.WriteLine(Path.ChangeExtension(SourceFilename, ".opf" + ": file created."));
+            opfDoc.Save(OutFilename + ".opf");
+            Console.WriteLine(OutFilename + ".opf" + ": file created.");
         }
 
         private static string generateTAGQuery(string searchQuery)

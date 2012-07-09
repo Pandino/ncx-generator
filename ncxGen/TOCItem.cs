@@ -74,13 +74,13 @@ namespace ncxGen
         /// <param name="value">Text to be written in the TOC</param>
         /// <param name="link">Link to the anchor in the html file</param>
         /// <param name="level">Level of indentation in the TOC</param>
-        public TOCItem(int position, string element, string filename, int id,  int level)
+        public TOCItem(int position, string element, string filename, string id,  int level)
         {            
-            Element      = element.Trim();
-            Filename     = filename;
-            this.Id      = NCXGen.Prefix + id.ToString();                                //HACK: Using a global var and it is modifying the original file in the constructor
-            Level        = level;
-            Position = position;                        
+            Element     = element.Trim();
+            Filename    = filename;
+            Id          = id;                                
+            Level       = level;
+            Position    = position;                        
         }
         
         public int CompareTo(TOCItem other)
