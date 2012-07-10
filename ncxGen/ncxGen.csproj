@@ -72,6 +72,7 @@
     <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="HtmlAgilityPack, Version=1.4.0.0, Culture=neutral, PublicKeyToken=bd319b19eaf3b43a, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -114,6 +115,9 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="3rd party libs\HtmlAgilityPack.dll" />
+    <Content Include="3rd party libs\HtmlAgilityPack.pdb" />
+    <Content Include="3rd party libs\HtmlAgilityPack.XML" />
     <Content Include="Clip.txt" />
     <Content Include="README.txt" />
     <Content Include="Test\test.html">

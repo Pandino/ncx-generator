@@ -31,6 +31,7 @@ using System.Xml.XPath;
 using System.Xml.Linq;
 using System.IO;
 using Mono.Options;
+using HtmlAgilityPack;
 
 
 namespace ncxGen
@@ -68,7 +69,7 @@ namespace ncxGen
         static int nextID = 0;
 
         static string SourceFilename;   //TODO: refactor in Main
-        static string OutFilename;
+        static string OutFullFilename;          // Output filename with extension
 
         static void Main(string[] args)
         {
@@ -79,9 +80,7 @@ namespace ncxGen
             var makeHtmlToc = false;        // Option to generate the html ToC
             var makeNcxToc = false;         // Option to generate the NcX ToC
             var makeOpfToc = false;         // Option to generate the Opf file //TODO: reference to other file names as parameter
-            string htmlText;
-
-
+            
             var options = new OptionSet()
             {
                 {"h|?|help", "Display this help.", v => showHelp = v != null},
@@ -142,7 +141,7 @@ namespace ncxGen
 
             //basePath = Path.GetDirectoryName(SourceFilename);       //used when -o option
             //TODO: output file option
-            OutFilename = defaultFilename;
+            OutFullFilename = defaultFilename + ".html";
 
             //
             // Parameters validation (cannot generate opf without both html and ncx ToC)
@@ -154,13 +153,14 @@ namespace ncxGen
             }
             // Setup default query
             if (queriesByLevel.Count == 0)
-                queriesByLevel.AddRange(new List<string> { @"h2", @"h3", @"h4" });
+                queriesByLevel.AddRange(new List<string> { @"//h2", @"//h3", @"//h4" });
             else
                 numLevels = queriesByLevel.Count;
             Console.WriteLine("Making " + numLevels + " levels in the toc.");
 
-            htmlText = File.ReadAllText(SourceFilename);
-            populateTOC(ref htmlText, ref TOCItems, queriesByLevel);                                    //Create the TOC list in the variable TOCItems
+            HtmlDocument htmlText = new HtmlDocument();
+            htmlText.Load(SourceFilename);
+            populateTOC(htmlText, TOCItems, queriesByLevel);                                    //Create the TOC list in the variable TOCItems
             if (TOCItems.Count == 0)
             {
                 Console.WriteLine("ERROR: The query produced no results.");
@@ -178,7 +178,16 @@ namespace ncxGen
 
             if (makeHtmlToc || makeNcxToc || makeNcxToc)                                                //Don't save the output file when no options given.
             {                                                                                           //TODO: overwrite check
-                File.WriteAllText(Path.Combine(basePath, OutFilename + ".out.html"), htmlText);         
+                if ( File.Exists(Path.Combine(basePath, OutFullFilename)) )
+                {
+                    Console.WriteLine("WARNING: {0} already exists. Would you like to overwrite it? [y/N]:");
+                    if (Console.ReadKey().KeyChar != 'y')
+                    {
+                        Console.WriteLine("Exiting without saving.");                                   //TODO: refactor generatexxx to output the XDocument and save here
+                        Environment.Exit(0);
+                    }
+                }
+                htmlText.Save(Path.Combine(basePath, OutFullFilename));
             }
         }
 
@@ -350,42 +359,34 @@ namespace ncxGen
         /// <param name="TOCItems">The list of TAC items</param>
         /// <param name="searchQuery">The list with the search queries</param>
         /// <returns>An integer with the number of occurrences of searcQuery found in htmlText</returns>
-        private static void populateTOC(ref string htmlText, ref List<TOCItem> TOCItems , List<string> searchQuery)
-        {
-            // Setup the regular expression to extract the id field:
-            string id;            
-            string idPattern = @"id\s*=\s*""([^""]+)";
-            Regex rid = new Regex(idPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
+        private static void populateTOC(HtmlDocument htmlText, List<TOCItem> TOCItems , List<string> searchQuery)
+        {            
             // Parse the query for each level and populate the TOC List
             for (int level = 0; level < searchQuery.Count(); level++)
             {
-                string pattern = generateTAGQuery(searchQuery[level]);
-                if (DEBUG) {Console.WriteLine(pattern);}
-                MatchCollection matches = Regex.Matches(htmlText, pattern, RegexOptions.IgnoreCase); //TODO: WRONG, must use REPLACE
-                foreach (Match match in matches)
-                {
-                    // Search for an ID attribute:
-                    id = rid.Match(match.Groups["ATTRIBUTES"].Value).Value;
-                    // If none found, assign a new one and write it back in the html file:
-                    if (id == "") 
-                    { 
-                        id = Prefix + (nextID++).ToString();
- 
-                    }
+                
+                foreach (HtmlNode node in htmlText.DocumentNode.SelectNodes(searchQuery[level]))
+                {                    
+                    if (node.Id == "")
+                    {
+                        node.SetAttributeValue("Id", Prefix + (nextID++).ToString());
+                    }                    
 
-                    TOCItems.Add(new TOCItem(match.Index,
-                                            match.Groups["ELEMENT"].Value,
-                                            Path.GetFileName(SourceFilename), 
-                                            id, 
+                    TOCItems.Add(new TOCItem(node,
+                                            Path.GetFileName(SourceFilename),
+                                            node.Id,
                                             level
                                             ));
                 }
             }
+
             // Order the final node list by document position
             TOCItems.Sort();
+            if (DEBUG) printTOC(TOCItems);
             return;
         }
+
+        
 
         private static void generateOpf(List<TOCItem> TOCItems)
         {
@@ -423,7 +424,7 @@ namespace ncxGen
                     new XElement(ns + "item",
                         new XAttribute("id", "item2"),
                         new XAttribute("media-type", "application/xhtml+xml"),
-                        new XAttribute("href", OutFilename)),
+                        new XAttribute("href", OutFullFilename)),
                     new XElement(ns + "item",
                         new XAttribute("id", "My_Table_of_Contents"),
                         new XAttribute("media-type", "application/x-dtbncx+xml"),
@@ -451,7 +452,7 @@ namespace ncxGen
                         new XAttribute("type", "text"),
                         new XAttribute("title", "Beginning"),
                         new XAttribute("href",
-                            OutFilename + ((textGuide == null) ? "" : "#" + textGuide)
+                            OutFullFilename + ((textGuide == null) ? "" : "#" + textGuide)
                         )
                     )
                 );
@@ -464,20 +465,9 @@ namespace ncxGen
 
             XDocument opfDoc = new XDocument(package);
 
-            opfDoc.Save(OutFilename + ".opf");
-            Console.WriteLine(OutFilename + ".opf" + ": file created.");
+            opfDoc.Save(OutFullFilename + ".opf");
+            Console.WriteLine(OutFullFilename + ".opf" + ": file created.");
         }
-
-        private static string generateTAGQuery(string searchQuery)
-        {
-            return @"<" + 
-                @"(?:" + searchQuery + @")" + 
-                @"\s*(?<ATTRIBUTES>[^>]*)>" +       // Matches the first part of the HTML tag, grouping the attributes apart
-                @"(?<ELEMENT>.*)" +                 // Matches the element and names it
-                @"(?:</" +
-                @"(?:" + searchQuery + @")" + 
-                @"[^>]*>)";                         // Closing tag discarded
-            
-        }
+                
     }
 }

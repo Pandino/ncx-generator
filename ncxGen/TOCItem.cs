@@ -25,8 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Xml.Linq;
-using System.IO;
+using HtmlAgilityPack;
 
 
 namespace ncxGen
@@ -48,7 +47,7 @@ namespace ncxGen
         /// </summary>
         private string Filename { get; set; }
 
-        private int Position { get; set; }
+        private HtmlNode node { get; set; }
 
         /// <summary>
         /// Html link to the node tag. Style: "filename.ext#link"
@@ -74,19 +73,21 @@ namespace ncxGen
         /// <param name="value">Text to be written in the TOC</param>
         /// <param name="link">Link to the anchor in the html file</param>
         /// <param name="level">Level of indentation in the TOC</param>
-        public TOCItem(int position, string element, string filename, string id,  int level)
+        public TOCItem(HtmlNode node, string filename, string id,  int level)
         {            
-            Element     = element.Trim();
+            Element     = node.InnerHtml.Trim();
             Filename    = filename;
             Id          = id;                                
             Level       = level;
-            Position    = position;                        
+            this.node   = node;                        
         }
         
         public int CompareTo(TOCItem other)
         {
-            if (this.Position < other.Position) return -1;
-            else if (this.Position > other.Position) return 1;
+            if (this.node.Line < other.node.Line) return -1;
+            else if (this.node.Line > other.node.Line) return 1;
+            else if (this.node.LinePosition < other.node.LinePosition) return -1;
+            else if (this.node.LinePosition > other.node.LinePosition) return 1;
             else return 0;
         }
     }
