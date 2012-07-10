@@ -74,8 +74,8 @@ namespace ncxGen
         /// <param name="link">Link to the anchor in the html file</param>
         /// <param name="level">Level of indentation in the TOC</param>
         public TOCItem(HtmlNode node, string filename, string id,  int level)
-        {            
-            Element     = node.InnerHtml.Trim();
+        {
+            Element = node.InnerText.Trim();
             Filename    = filename;
             Id          = id;                                
             Level       = level;
