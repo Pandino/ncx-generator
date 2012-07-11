@@ -1,9 +1,10 @@
 - allow output filename:
- - if no file specified: all files default to basename ncxgen_out.xxx
+ - if no file specified: all files default to basename ncxgen_out.xxx in the same dir of the input file
 - toc and ncx filenames: source_toc.html source.ncx
 - remove references to multiple html source filenames (doesn't make any sense)
-- *Regex* big overhaul
-- validate queries (tag name + optional class only)
+- <del>*Regex* big overhaul</del> Switch to HtmlAgilityPack
+- <del>validate queries (tag name + optional class only) </del> 
+- verbose mode
 - preserve existing ID attributes, option to ignore them
 - text start guide items
 - TOCItems: 

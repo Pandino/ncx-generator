@@ -52,23 +52,18 @@ namespace ncxGen
         static int numLevels              = 3;            // Number of levels of the ToC (calculated from the numbers of -q or the default is 3)
         static string textGuide           = null;         // ID-"name" attribute pointing to the starting A TAG of the text.
         static string[] guideItems        = { "text", "start" };
-        static bool DEBUG                 = false;
 
         //
         // Program constants
         //
-        static string tocHtmlFilename = "ncx-gen-toc.html"; //TODO: Handle in case of output flag
-        static string tocNcxFilename  = "ncx-gen-toc.ncx";
+        static string tocHtmlFilename = ""; //TODO: Handle in case of output flag
+        static string tocNcxFilename  = "";
         static string defaultFilename = "ncxgen_out";
         static string basePath        = @".\";
-        public const string Prefix    = "NCXGen";
+        const string Prefix    = "NCXGen";
                         
-        /// <summary>
-        /// The int pointing at the next available integer for creating the anchors
-        /// </summary>
         static int nextID = 0;
-
-        static string SourceFilename;   //TODO: refactor in Main
+        static bool verbose = false;
         static string OutFullFilename;          // Output filename with extension
 
         static void Main(string[] args)
@@ -77,10 +72,12 @@ namespace ncxGen
             List<string> unprocessed = null;
             List<string> queriesByLevel = new List<string>();
             var showHelp = false;
+            string SourceFilename;
+            string tocOpfFilename;
             var makeHtmlToc = false;        // Option to generate the html ToC
             var makeNcxToc = false;         // Option to generate the NcX ToC
             var makeOpfToc = false;         // Option to generate the Opf file //TODO: reference to other file names as parameter
-            
+
             var options = new OptionSet()
             {
                 {"h|?|help", "Display this help.", v => showHelp = v != null},
@@ -93,7 +90,7 @@ namespace ncxGen
                 {"toc-title=", "Name of the Table of Contents", v => TocTitle = v},
                 {"author=", "Author name.", a => BookAuthorName = a},
                 {"title=","Book title.", t => BookTitle = t},
-                {"debug", "Show debug messages", v => DEBUG = v != null}
+                {"v|verbose", "Turn on verbose output", v => verbose = v != null}
             };
 
 
@@ -119,7 +116,7 @@ namespace ncxGen
             //
             if (unprocessed.Count != 1)
             {
-                Console.WriteLine("ERROR: Wrong number of parameters.");
+                Console.WriteLine("ERROR: Wrong number of parameters (only one html file can be processed at a time).");
                 ShowHelp(options);
                 Environment.Exit(1);
             }
@@ -128,7 +125,7 @@ namespace ncxGen
 
             if (SourceFilename[0] == '-' || SourceFilename[0] == '/')
             {
-                Console.WriteLine("ERROR: Invalid parameter: \"" + SourceFilename + "\"");
+                Console.WriteLine("ERROR: Unrecognized parameter: \"" + SourceFilename + "\"");
                 ShowHelp(options);
                 Environment.Exit(1);
             }
@@ -139,9 +136,12 @@ namespace ncxGen
                 Environment.Exit(1);
             }
 
-            //basePath = Path.GetDirectoryName(SourceFilename);       //used when -o option
+            basePath = Path.GetDirectoryName(SourceFilename);
             //TODO: output file option
-            OutFullFilename = defaultFilename + ".html";
+            OutFullFilename = SourceFilename + "out.html";
+            tocHtmlFilename = SourceFilename + "toc.html";
+            tocNcxFilename = SourceFilename + ".ncx";
+            tocOpfFilename = SourceFilename + ".opf"; 
 
             //
             // Parameters validation (cannot generate opf without both html and ncx ToC)
@@ -156,7 +156,7 @@ namespace ncxGen
                 queriesByLevel.AddRange(new List<string> { @"//h2", @"//h3", @"//h4" });
             else
                 numLevels = queriesByLevel.Count;
-            Console.WriteLine("Making " + numLevels + " levels in the toc.");
+            if (verbose) Console.WriteLine("Making " + numLevels + " levels in the toc.");
 
             HtmlDocument htmlText = new HtmlDocument();
             htmlText.Load(SourceFilename);
@@ -166,31 +166,58 @@ namespace ncxGen
                 Console.WriteLine("ERROR: The query produced no results.");
                 Environment.Exit(1);
             }
-
-            //TODO: text guide
+        
+            //TODO: text guide totally wrong
+            //textGuide = htmlText.DocumentNode.Descendants().FirstOrDefault(node => guideItems.Contains((string)node.GetAttributeValue("id", ""))).GetAttributeValue("id","");
             //Console.WriteLine("Found one text guide.");
 
-            Console.WriteLine("The TOC will have {0} items. {1} in the first level.", TOCItems.Count, TOCItems.Count(p => p.Level == 0));
+            if (verbose) Console.WriteLine("The TOC will have {0} items. {1} in the first level.", TOCItems.Count, TOCItems.Count(p => p.Level == 0));
 
-            if (makeHtmlToc) generateHtmlToc(TOCItems);
-            if (makeNcxToc) generateNcxToc(TOCItems, makeHtmlToc);                                      //makeHtmlToc: if we made the html ToC, add it to the NCX root
-            if (makeOpfToc) generateOpf(TOCItems);
-
-            if (makeHtmlToc || makeNcxToc || makeNcxToc)                                                //Don't save the output file when no options given.
-            {                                                                                           //TODO: overwrite check
-                if ( File.Exists(Path.Combine(basePath, OutFullFilename)) )
+            try
+            {
+                if (makeHtmlToc)
                 {
-                    Console.WriteLine("WARNING: {0} already exists. Would you like to overwrite it? [y/N]:");
-                    if (Console.ReadKey().KeyChar != 'y')
-                    {
-                        Console.WriteLine("Exiting without saving.");                                   //TODO: refactor generatexxx to output the XDocument and save here
-                        Environment.Exit(0);
-                    }
+                    XDocument docHtml = generateHtmlToc(TOCItems);
+                    docHtml.Save(Path.Combine(basePath, tocHtmlFilename));
+                    if (verbose) Console.WriteLine(tocHtmlFilename + ": Table of Contents created.");
                 }
-                htmlText.Save(Path.Combine(basePath, OutFullFilename));
+
+                if (makeNcxToc)
+                {
+                    XDocument docNcx = generateNcxToc(TOCItems, makeHtmlToc);                                      //makeHtmlToc: if we made the html ToC, add it to the NCX root
+                    docNcx.Save(Path.Combine(basePath, tocNcxFilename));
+                    if (verbose) Console.WriteLine(tocHtmlFilename + ": NCX Global Navigation file created.");
+                }
+
+                if (makeOpfToc)
+                {
+                    XDocument docOpf = generateOpf(TOCItems);
+                    docOpf.Save(Path.Combine(basePath, tocOpfFilename));
+                    if (verbose) Console.WriteLine(tocOpfFilename + ": OPF metadata file created.");
+                }
+
+
+                if (makeHtmlToc || makeNcxToc || makeNcxToc)                                                //Don't save the output file when no options given.
+                {                                                                                           //TODO: overwrite check
+                    if (File.Exists(Path.Combine(basePath, OutFullFilename)))
+                    {
+                        Console.Write("WARNING: {0} already exists. Would you like to overwrite it? [y/N]:",Path.Combine(basePath, OutFullFilename));
+                        if (Console.ReadKey().KeyChar != 'y')
+                        {
+                            Console.WriteLine("Exiting without saving.");                                   //TODO: refactor generatexxx to output the XDocument and save here
+                            Environment.Exit(0);
+                        }
+                    }
+                    htmlText.Save(Path.Combine(basePath, OutFullFilename));
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("ERROR: " + e.Message);
+                Environment.Exit(1);
             }
         }
-
+         
         private static void ShowHelp(OptionSet p)
         {
             Console.WriteLine("\nNcx and opf tool generator from a single XHTML file.\n");
@@ -203,7 +230,7 @@ namespace ncxGen
         /// <summary>
         /// Create the html toc.html containing the html TOC of the book
         /// </summary>
-        private static void generateHtmlToc(List<TOCItem> TOCItems)
+        private static XDocument generateHtmlToc(List<TOCItem> TOCItems)
         {
             var docType = new XDocumentType("html", "-//W3C//DTD XHTML 1.0 Transitional//EN", "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd", null);
             XNamespace ns = "http://www.w3.org/1999/xhtml";
@@ -245,13 +272,11 @@ namespace ncxGen
             var docHtml = new XDocument(
                 docType,
                 htmlTOC);
-
-            docHtml.Save(Path.Combine(basePath, tocHtmlFilename));
-            Console.WriteLine(tocHtmlFilename + ": Table of Contents created.");
+            return docHtml;
         }
 
 
-        private static void generateNcxToc(List<TOCItem> TOCItems, bool addHtmlToC = false)
+        private static XDocument generateNcxToc(List<TOCItem> TOCItems, bool addHtmlToC = false)
         {
             int playOrder = 0;
             XElement navPoint;
@@ -334,8 +359,7 @@ namespace ncxGen
 
             XDocument ncxDoc = new XDocument(docType, ncx);
 
-            ncxDoc.Save(Path.Combine(basePath, tocNcxFilename));
-            Console.WriteLine(tocHtmlFilename + ": NCX Global Navigation file created.");
+            return ncxDoc;
         }
 
         /// <summary>
@@ -373,7 +397,7 @@ namespace ncxGen
                     }                    
 
                     TOCItems.Add(new TOCItem(node,
-                                            Path.GetFileName(SourceFilename),
+                                            OutFullFilename,
                                             node.Id,
                                             level
                                             ));
@@ -382,13 +406,12 @@ namespace ncxGen
 
             // Order the final node list by document position
             TOCItems.Sort();
-            if (DEBUG) printTOC(TOCItems);
             return;
         }
 
         
 
-        private static void generateOpf(List<TOCItem> TOCItems)
+        private static XDocument generateOpf(List<TOCItem> TOCItems)
         {
             XNamespace ns = "http://www.idpf.org/2007/opf";
 
@@ -464,9 +487,7 @@ namespace ncxGen
                     metadata, manifest, spine, guide);
 
             XDocument opfDoc = new XDocument(package);
-
-            opfDoc.Save(OutFullFilename + ".opf");
-            Console.WriteLine(OutFullFilename + ".opf" + ": file created.");
+            return opfDoc;
         }
                 
     }
