@@ -4,7 +4,7 @@
 - remove references to multiple html source filenames (doesn't make any sense)
 - <del>*Regex* big overhaul</del> Switch to HtmlAgilityPack
 - <del>validate queries (tag name + optional class only) </del> 
-- verbose mode
+- <del> verbose mode <del>
 - preserve existing ID attributes, option to ignore them
 - text start guide items
 - TOCItems: 

@@ -141,6 +141,9 @@
   <ItemGroup>
     <Content Include="Clip.txt" />
     <Content Include="README.txt" />
+    <Content Include="Test\patapon.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Test\test.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

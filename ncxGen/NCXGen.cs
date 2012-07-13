@@ -76,7 +76,7 @@ namespace ncxGen
             string tocOpfFilename;
             var makeHtmlToc = false;        // Option to generate the html ToC
             var makeNcxToc = false;         // Option to generate the NcX ToC
-            var makeOpfToc = false;         // Option to generate the Opf file //TODO: reference to other file names as parameter
+            var makeOpfToc = false;         // Option to generate the Opf file 
 
             var options = new OptionSet()
             {
@@ -138,10 +138,11 @@ namespace ncxGen
 
             basePath = Path.GetDirectoryName(SourceFilename);
             //TODO: output file option
-            OutFullFilename = SourceFilename + "out.html";
-            tocHtmlFilename = SourceFilename + "toc.html";
-            tocNcxFilename = SourceFilename + ".ncx";
-            tocOpfFilename = SourceFilename + ".opf"; 
+            string filename = Path.GetFileNameWithoutExtension(SourceFilename);
+            OutFullFilename = filename + "out.html";
+            tocHtmlFilename = filename + "toc.html";
+            tocNcxFilename = filename + ".ncx";
+            tocOpfFilename = filename + ".opf"; 
 
             //
             // Parameters validation (cannot generate opf without both html and ncx ToC)
@@ -166,11 +167,8 @@ namespace ncxGen
                 Console.WriteLine("ERROR: The query produced no results.");
                 Environment.Exit(1);
             }
-        
-            //TODO: text guide totally wrong
-            //textGuide = htmlText.DocumentNode.Descendants().FirstOrDefault(node => guideItems.Contains((string)node.GetAttributeValue("id", ""))).GetAttributeValue("id","");
-            //Console.WriteLine("Found one text guide.");
 
+            
             if (verbose) Console.WriteLine("The TOC will have {0} items. {1} in the first level.", TOCItems.Count, TOCItems.Count(p => p.Level == 0));
 
             try
