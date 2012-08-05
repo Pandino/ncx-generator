@@ -386,19 +386,29 @@ namespace ncxGen
             // Parse the query for each level and populate the TOC List
             for (int level = 0; level < searchQuery.Count(); level++)
             {
-                
-                foreach (HtmlNode node in htmlText.DocumentNode.SelectNodes(searchQuery[level]))
-                {                    
-                    if (node.Id == "")
+                HtmlNodeCollection nodes = htmlText.DocumentNode.SelectNodes(searchQuery[level]);
+                if (nodes == null)
+                {
+                    Console.WriteLine("Warning. The query: " + searchQuery[level] + " returned no results");
+                } else 
+                {
+                    if (verbose)
                     {
-                        node.SetAttributeValue("Id", Prefix + (nextID++).ToString());
-                    }                    
+                        Console.WriteLine("Query " + searchQuery[level] + " found " + nodes.Count + " results");
+                    }
+                    foreach (HtmlNode node in nodes)
+                    {
+                        if (node.Id == "")
+                        {
+                            node.SetAttributeValue("Id", Prefix + (nextID++).ToString());
+                        }
 
-                    TOCItems.Add(new TOCItem(node,
-                                            OutFullFilename,
-                                            node.Id,
-                                            level
-                                            ));
+                        TOCItems.Add(new TOCItem(node,
+                                                OutFullFilename,
+                                                node.Id,
+                                                level
+                                                ));
+                    }
                 }
             }
 
