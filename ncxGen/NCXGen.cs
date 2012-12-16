@@ -160,7 +160,9 @@ namespace ncxGen
             if (verbose) Console.WriteLine("Making " + numLevels + " levels in the toc.");
 
             HtmlDocument htmlText = new HtmlDocument();
-            htmlText.Load(SourceFilename);
+            htmlText.Load(SourceFilename, true);
+            if (verbose) Console.WriteLine("Detected file encoding:" + htmlText.Encoding.ToString());
+
             populateTOC(htmlText, TOCItems, queriesByLevel);                                    //Create the TOC list in the variable TOCItems
             if (TOCItems.Count == 0)
             {
