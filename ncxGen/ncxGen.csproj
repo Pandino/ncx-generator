@@ -70,6 +70,9 @@
   </PropertyGroup>
   <PropertyGroup />
   <ItemGroup>
+    <Reference Include="HtmlAgilityPack">
+      <HintPath>..\packages\HtmlAgilityPack.1.4.6\lib\Net40-client\HtmlAgilityPack.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
@@ -80,34 +83,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="3rd party libs\crc32.cs" />
-    <Compile Include="3rd party libs\EncodingFoundException.cs" />
-    <Compile Include="3rd party libs\HtmlAttribute.cs" />
-    <Compile Include="3rd party libs\HtmlAttributeCollection.cs" />
-    <Compile Include="3rd party libs\HtmlCmdLine.cs" />
-    <Compile Include="3rd party libs\HtmlCommentNode.cs" />
-    <Compile Include="3rd party libs\HtmlConsoleListener.cs" />
-    <Compile Include="3rd party libs\HtmlDocument.cs" />
-    <Compile Include="3rd party libs\HtmlElementFlag.cs" />
-    <Compile Include="3rd party libs\HtmlEntity.cs" />
-    <Compile Include="3rd party libs\HtmlNameTable.cs" />
-    <Compile Include="3rd party libs\HtmlNode.cs" />
-    <Compile Include="3rd party libs\HtmlNodeCollection.cs" />
-    <Compile Include="3rd party libs\HtmlNodeNavigator.cs" />
-    <Compile Include="3rd party libs\HtmlNodeType.cs" />
-    <Compile Include="3rd party libs\HtmlParseError.cs" />
-    <Compile Include="3rd party libs\HtmlParseErrorCode.cs" />
-    <Compile Include="3rd party libs\HtmlTextNode.cs" />
-    <Compile Include="3rd party libs\HtmlWeb.cs" />
-    <Compile Include="3rd party libs\HtmlWebException.cs" />
-    <Compile Include="3rd party libs\IOLibrary.cs" />
-    <Compile Include="3rd party libs\MixedCodeDocument.cs" />
-    <Compile Include="3rd party libs\MixedCodeDocumentCodeFragment.cs" />
-    <Compile Include="3rd party libs\MixedCodeDocumentFragment.cs" />
-    <Compile Include="3rd party libs\MixedCodeDocumentFragmentList.cs" />
-    <Compile Include="3rd party libs\MixedCodeDocumentFragmentType.cs" />
-    <Compile Include="3rd party libs\MixedCodeDocumentTextFragment.cs" />
-    <Compile Include="3rd party libs\NameValuePairList.cs" />
     <Compile Include="3rd party libs\Options.cs" />
     <Compile Include="NCXGen.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -116,6 +91,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="COPYING" />
+    <None Include="packages.config" />
     <None Include="TODO.md" />
   </ItemGroup>
   <ItemGroup>
