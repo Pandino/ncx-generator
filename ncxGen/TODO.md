@@ -1,12 +1,13 @@
 - allow output filename:
  - if no file specified: all files default to basename ncxgen_out.xxx in the same dir of the input file
 - toc and ncx filenames: source_toc.html source.ncx
+- save all optional files in a dir (keep out .opf?)
 - remove references to multiple html source filenames (doesn't make any sense)
 - <del>*Regex* big overhaul</del> Switch to HtmlAgilityPack
 - <del>validate queries (tag name + optional class only) </del> 
-- <del> verbose mode <del>
+- <del> verbose mode </del>
 - preserve existing ID attributes, option to ignore them
-- text start guide items
+- *text start guide items*
 - TOCItems: 
 	- _Element_ (was Value, stripped from HTML)
 	- Id (generated if not already exist)
@@ -14,3 +15,4 @@
 	- <del>_Level_</del>
 	- <del>_Position_ = start position of the tag matched to be used for comparison</del>
 	- <del>_CompareTo_ = update to use Position</del>
+- <del> convert ` <PRE class="image"> ` to png </del>

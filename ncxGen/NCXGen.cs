@@ -77,6 +77,7 @@ namespace ncxGen
             var makeHtmlToc = false;        // Option to generate the html ToC
             var makeNcxToc = false;         // Option to generate the NcX ToC
             var makeOpfToc = false;         // Option to generate the Opf file 
+            var makeImages = false;
 
             var options = new OptionSet()
             {
@@ -90,7 +91,8 @@ namespace ncxGen
                 {"toc-title=", "Name of the Table of Contents", v => TocTitle = v},
                 {"author=", "Author name.", a => BookAuthorName = a},
                 {"title=","Book title.", t => BookTitle = t},
-                {"v|verbose", "Turn on verbose output", v => verbose = v != null}
+                {"v|verbose", "Turn on verbose output", v => verbose = v != null},
+                {"i", "Convert <PRE class='image'> tags to PNG images", v => makeImages = v != null},
             };
 
 
@@ -160,8 +162,35 @@ namespace ncxGen
             if (verbose) Console.WriteLine("Making " + numLevels + " levels in the toc.");
 
             HtmlDocument htmlText = new HtmlDocument();
-            htmlText.Load(SourceFilename, true);
+
+            htmlText.Load(SourceFilename);
             if (verbose) Console.WriteLine("Detected file encoding:" + htmlText.Encoding.ToString());
+
+            if (makeImages)
+            {
+                try
+                {
+                    string content;
+                    string imageName;
+
+                    HtmlNodeCollection pres = htmlText.DocumentNode.SelectNodes(@"//pre[@class='image']");
+                    if (pres != null)
+                    {
+                        for (int i = 0; i < pres.Count; i++)
+                        {
+                            content = pres[i].InnerText;
+                            imageName = "img" + i.ToString("D2") + ".png";
+                            Utils.CreateBitmapImage(content, imageName);
+                            pres[i].ParentNode.ReplaceChild(HtmlNode.CreateNode( "<IMG src='" + imageName + "'>"),pres[i]);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("ERROR: Unable to write PRE convereted files:\n" + e.Message);
+                    Environment.Exit(1);
+                }
+            }
 
             populateTOC(htmlText, TOCItems, queriesByLevel);                                    //Create the TOC list in the variable TOCItems
             if (TOCItems.Count == 0)
