@@ -19,7 +19,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
-//   $Rev: 18 $
+//   Version 0.2.3
 
 using System;
 using System.Collections.Generic;
@@ -163,7 +163,7 @@ namespace ncxGen
 
             HtmlDocument htmlText = new HtmlDocument();
 
-            htmlText.Load(SourceFilename);
+            htmlText.DetectEncodingAndLoad(SourceFilename,true);
             if (verbose) Console.WriteLine("Detected file encoding:" + htmlText.Encoding.ToString());
 
             if (makeImages)
