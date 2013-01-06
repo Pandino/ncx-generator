@@ -269,7 +269,7 @@ namespace ncxGen
                             new XText("\tp {text-align: left}\n"));
             for (int i = 0; i < numLevels; i++)
             {
-                styles.Add(new XText("\tp.level_" + i + " text-indent: " + i + "em }\n"));   //TODO: Is there any better way to match it with 
+                styles.Add(new XText("\tp.level_" + i + " {text-indent: " + i + "em }\n"));   
             }
 
             // Create the html file projecting the TOCItems to a series of <p> elements
