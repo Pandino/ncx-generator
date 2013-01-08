@@ -183,6 +183,7 @@ namespace ncxGen
                             Utils.CreateBitmapImage(content, imageName);
                             pres[i].ParentNode.ReplaceChild(HtmlNode.CreateNode( "<IMG src='" + imageName + "'>"),pres[i]);
                         }
+						if (verbose) Console.WriteLine("Created " + pres.Count + " images from PRE tags.");
                     }
                 }
                 catch (Exception e)
@@ -200,7 +201,7 @@ namespace ncxGen
             }
 
             
-            if (verbose) Console.WriteLine("The TOC will have {0} items. {1} in the first level.", TOCItems.Count, TOCItems.Count(p => p.Level == 0));
+            Console.WriteLine("The TOC will have {0} items. {1} in the first level.", TOCItems.Count, TOCItems.Count(p => p.Level == 0));
 
             try
             {
@@ -208,21 +209,21 @@ namespace ncxGen
                 {
                     XDocument docHtml = generateHtmlToc(TOCItems);
                     docHtml.Save(Path.Combine(basePath, tocHtmlFilename));
-                    if (verbose) Console.WriteLine(tocHtmlFilename + ": Table of Contents created.");
+                    Console.WriteLine(tocHtmlFilename + ": Table of Contents created.");
                 }
 
                 if (makeNcxToc)
                 {
                     XDocument docNcx = generateNcxToc(TOCItems, makeHtmlToc);                                      //makeHtmlToc: if we made the html ToC, add it to the NCX root
                     docNcx.Save(Path.Combine(basePath, tocNcxFilename));
-                    if (verbose) Console.WriteLine(tocHtmlFilename + ": NCX Global Navigation file created.");
+                    Console.WriteLine(tocHtmlFilename + ": NCX Global Navigation file created.");
                 }
 
                 if (makeOpfToc)
                 {
                     XDocument docOpf = generateOpf(TOCItems);
                     docOpf.Save(Path.Combine(basePath, tocOpfFilename));
-                    if (verbose) Console.WriteLine(tocOpfFilename + ": OPF metadata file created.");
+                    Console.WriteLine(tocOpfFilename + ": OPF metadata file created.");
                 }
 
 
@@ -238,6 +239,7 @@ namespace ncxGen
                         }
                     }
                     htmlText.Save(Path.Combine(basePath, OutFullFilename));
+					Console.WriteLine(OutFullFilename + ": new HTML file created.");
                 }
             }
             catch (Exception e)
