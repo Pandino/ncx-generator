@@ -65,6 +65,7 @@ namespace ncxGen
 		static int nextID = 0;
 		static bool verbose = false;
 		static string OutFullFilename;          // Output filename with extension
+        static bool tocAtEnd = false;
 
 		static void Main(string[] args)
 		{
@@ -79,6 +80,7 @@ namespace ncxGen
 			var makeOpfToc = false;         // Option to generate the Opf file 
 			var makeImages = false;
 
+
 			var options = new OptionSet()
 			{
 				{"h|?|help", "Display this help.", v => showHelp = v != null},
@@ -89,6 +91,7 @@ namespace ncxGen
 				{"q=|query=", "The XPath query to find the ToC items. Use multiple times to add levels in the ToC.", (q) => queriesByLevel.Add(q) },
 				{"l=|level=", "Number of levels to collapse to generate the NCX file - used with -ncx or -all.", (int l) => numNcxLevelsToCollapse = l},
 				{"toc-title=", "Name of the Table of Contents", v => TocTitle = v},
+                {"e", "Place the generated TOC at the end of the book", v => tocAtEnd = v != null},
 				{"author=", "Author name.", a => BookAuthorName = a},
 				{"title=","Book title.", t => BookTitle = t},
 				{"v|verbose", "Turn on verbose output", v => verbose = v != null},
@@ -327,7 +330,7 @@ namespace ncxGen
 
 			// start adding the HTML ToC to the root, keep separate from ToCItems so it's not showing up in the html ToC
 
-			if (addHtmlToC)
+			if (addHtmlToC && !tocAtEnd)
 			{
 				navPoint =
 						new XElement(ns + "navPoint",
@@ -340,10 +343,10 @@ namespace ncxGen
 								new XAttribute("src", tocHtmlFilename)));
 
 				nodePlaceholder[0].Add(navPoint);
-				nodePlaceholder[1] = navPoint;
+				nodePlaceholder[1] = navPoint;              
 			}
 
-			foreach (TOCItem item in TOCItems)
+            foreach (TOCItem item in TOCItems)                          // TODO: Warning if first node level is > 0
 			{
 				navPoint =
 					new XElement(ns + "navPoint",
@@ -363,6 +366,23 @@ namespace ncxGen
 				nodePlaceholder[ncxLevel - 1].Add(navPoint);            //Add the navPoint as a child of the placeholder navPoint present in the previous menu level
 				nodePlaceholder[ncxLevel] = navPoint;
 			}
+
+            // Fast hack to place the TOC at the end. Need refactoring!
+            if (addHtmlToC && tocAtEnd)
+            {
+                navPoint =
+                        new XElement(ns + "navPoint",
+                            new XAttribute("class", "TOC"),
+                            new XAttribute("id", "TOC"),
+                            new XAttribute("playOrder", playOrder++),
+                            new XElement(ns + "navLabel",
+                                new XElement(ns + "text", TocTitle)),
+                            new XElement(ns + "content",
+                                new XAttribute("src", tocHtmlFilename)));
+
+                nodePlaceholder[0].Add(navPoint);
+                nodePlaceholder[1] = navPoint;
+            }
 
 			XDocumentType docType = new XDocumentType("ncx", "-//NISO//DTD ncx 2005-1//EN", "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd", null);
 
@@ -500,11 +520,25 @@ namespace ncxGen
 
 			XElement spine =
 				new XElement(ns + "spine",
-					new XAttribute("toc", "My_Table_of_Contents"),
-					new XElement(ns + "itemref",
-						new XAttribute("idref", "item1")),
-					new XElement(ns + "itemref",
-						new XAttribute("idref", "item2")));
+					new XAttribute("toc", "My_Table_of_Contents"));
+
+            // Ugly Hack to place the TOC
+            if (tocAtEnd)
+            {
+                spine.Add(
+                    new XElement(ns + "itemref",
+                        new XAttribute("idref", "item2")),
+                    new XElement(ns + "itemref",
+                        new XAttribute("idref", "item1")));
+            }
+            else
+            {
+                spine.Add(
+                    new XElement(ns + "itemref",
+                        new XAttribute("idref", "item1")),
+                    new XElement(ns + "itemref",
+                        new XAttribute("idref", "item2")));
+            }
 
 			XElement guide =
 				new XElement(ns + "guide",
